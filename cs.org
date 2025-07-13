@@ -1,0 +1,1003 @@
+#+title: CS笔记
+* 硬件
+** 布尔函数
+*** 布尔函数的定义
+设\(\mathbb{B}\)为集合\(\{0, 1\}\)，则一个布尔函数是一个从\(\mathbb{B}^n\)到\(\mathbb{B}\)的映射，记为\(f: \mathbb{B}^n \to \mathbb{B}\)，布尔函数可以用真值表来表示。
+例如常见的布尔函数有与（AND）、或（OR）、非（NOT）等。
+| x | y | x AND y | x OR y | NOT x |
+|---+---+---------+--------+-------|
+| 0 | 0 |       0 |      0 |     1 |
+| 0 | 1 |       0 |      1 |     1 |
+| 1 | 0 |       0 |      1 |     0 |
+| 1 | 1 |       1 |      1 |     0 |
+
+*** 布尔函数的表示
+一个问题是我们如何更好地表示布尔函数。也许我们可以找到一些基本的布尔函数，然后用它们来构造更复杂的布尔函数。
+
+为此，我们需要先说清楚什么是从简单的布尔函数构造复杂的布尔函数。
+
+假设我们有一族布尔函数\(F = \{f_1, f_2, \ldots, f_k\}\)，可由这些布尔函数构造的布尔函数由如下定义的\(F_{\infty}_{}\)给出：
+
+\[
+F_0 = \{f_1, f_2, \ldots, f_k\}
+\]
+\[
+F_{n+1} = F_n \cup \{f(x_1, x_2, \ldots, x_m) | f \in F, x_i \in F_n\}
+\]
+\[
+F_{\infty} = \bigcup_{n=0}^{\infty} F_n
+\]
+
+事实上，假设有一个布尔函数\(f:\mathbb{B}^n \to \mathbb{B}\)，其真值表如下：
+| x_1 | x_2 | ... | x_n | f(x_1, x_2, ..., x_n) |
+|-----+-----+-----+-----+-----------------------|
+|   0 |   0 | ... |   0 | f_0                   |
+|   0 |   0 | ... |   1 | f_1                   |
+|   0 |   0 | ... |   0 | f_2                   |
+|   0 |   0 | ... |   1 | f_3                   |
+| ... | ... | ... | ... | ...                   |
+|   1 |   1 | ... |   1 | f_{2^n-1}                |
+
+为了构造他，我们可以先考虑\(\{f_0, f_1, ..., f_{2^n-1}\}\)中有且仅有\(f_i\)为 1 的情况，这样的函数只要用 NOT 和 AND 就可以构造出来。然后我们可以用 OR 将实际上\(f\)为 1 的行对应的函数组合起来。对于全都为 0 的情况，我们可以用一个恒为 0 的函数（比如 x AND (NOT x)）来表示。
+
+至此我们发现，要表示一个布尔函数，我们只需要用到 NOT、AND 和 OR 这三个基本的布尔函数就够了。
+
+事实上，注意到 x AND y = NOT ((NOT x) OR (NOT y))，我们只需要用到 NOT 和 OR 就可以了。
+
+若令 x NAND y = NOT (x AND y)，则 NOT x = x NAND x，x OR y = (x NAND x) NAND (y NAND y)，则只需要用到 NAND 就可以了。
+
+虽然仅使用 NAND 就可以表示所有的布尔函数，但在实际应用中，使用单独设计的门电路会更加高效。
+
+** 逻辑门
+*** MOSFET 的工作原理
+总的来说，MOSFET 可以想像成是一种电磁继电器的类似物，它可以使用电平来控制一段电流的导通与否。使用开关来当输入，灯泡来当输出的逻辑门对我们来说是简单的。而使用 MOSFET 相当于说，我们可以用一部分电路的输出作为另一部分的栅极输入，从而控制另一部分电路的导通情况，这让我们可以制作逻辑门。但实际上，在这个笔记中，我们并不关心他的实现方式，我们唯一要知道的是，他是可以实现的。
+*** 逻辑门
+所谓逻辑门基本上就是布尔函数的电路实现，使用上面说的 MOSFET，我们可以复合各种逻辑门从而造出更复杂的逻辑门。另外，对于\(\mathbb{B}^n\)中的元素，把它看成一个 0~2^{n}-1 的二进制数也是一个有益的看法，这种看法在硬件上就是把一组针脚看作是一条输入输出二进制数的设备，这被叫做总线。
+
+除了常见的 AND、OR、NOT、XOR、NAND 之外，我们还介绍了两个非常实用的门 MUX 和 DMUX，对于 MUX，他有三个输入 a,b,sel，如果 sel=0，则输出 a，否则输出 b。对于 DMUX，他有两个输出 in 和 sel，两个输出 a,b，如果 sel=0，则 a=in,b=0，否则 a=0,b=in。对于这些门，我们可以轻松地把他们扩展到更多位的情况。
+
+对于这些简单的门，如果我们忘记了他们如何实现，只要把他们的真值表列出来然后按照[[布尔函数的表示]]中的方法，把他们拆成更简单的逻辑门即可。
+
+** ALU
+*** 加法器
+为了做算术运算，我们需要构造一个加法器，当然在计算机中我们能做的算术运算实际上是二进制运算，更进一步的，考虑溢出，我们能做的实际上是模 2 的次方的加法群中的算术。
+
+**** 半加器
+为了实现加法器，我们首先实现半加器，半加器实际上就是实现了两个比特之间的加法运算，假设我们要计算 a+b，输出当前位 sum 和是否进位 carry，其真值表如下：
+| a | b | sum | carry |
+|---+---+-----+-------|
+| 0 | 0 |   0 |     0 |
+| 0 | 1 |   1 |     0 |
+| 1 | 0 |   1 |     0 |
+| 1 | 1 |   0 |     1 |
+我们可以用 XOR 来实现 sum，用 AND 来实现 carry。
+
+**** 全加器
+全加器是半加器的推广，假设我们要计算 a + b + c，其中 c 是上一位运算输出的 carry，即是否上一位进位，输出当前位 sum 和是否进位 carry，其真值表如下：
+| a | b | c | sum | carry |
+|---+---+---+-----+-------|
+| 0 | 0 | 0 |   0 |     0 |
+| 0 | 0 | 1 |   1 |     0 |
+| 0 | 1 | 0 |   1 |     0 |
+| 0 | 1 | 1 |   0 |     1 |
+| 1 | 0 | 0 |   1 |     0 |
+| 1 | 0 | 1 |   0 |     1 |
+| 1 | 1 | 0 |   0 |     1 |
+| 1 | 1 | 1 |   1 |     1 |
+我们可以用两个半加器和一个 OR 来实现全加器，具体来说，先用第一个半加器计算 a 和 b 的和，然后用第二个半加器计算第一个半加器的输出和 c 的和，最后用 OR 计算两个半加器的进位输出。
+
+**** 加法器
+对于加法器，我们可以使用多个全加器来实现，假设我们要计算两个 n 位二进制数 a 和 b 的和，我们可以从最低位开始，依次使用全加器计算每一位的和。
+这种加法器被称为行波加法器，因为每一位的进位需要等待上一位的计算结果，速度较慢。我们可以考虑一种更快的实现，被称作超前进位加法器。
+我们假设有两个 n 位二进制数 A 和 B，他们的第 i 位分别为 A_{i} 和 B_{i}，第 i 位的和为 S_{i}，进位为 C_{i}，则有如下关系：
+C_{i} = (A_{i} AND B_{i}) OR ((A_{i} XOR B_{i}) OR C_{i-1})
+我们令 G_{i} = A_{i} AND B_{i}，P_{i} = A_{i} XOR B_{i}，则有：
+C_{i} = G_{i} OR (P_{i} AND C_{i-1})
+假设我们暂时先处理 4 位的情况，为了方便起见，使用+表示 OR，*表示 AND，则有：
+C_{0} = A_{0} * B_{0}= G_{0}
+C_{1} = G_{1} + P_{1} * G_{0}
+C_{2} = G_{2} + P_{2} * C_{1} = G_{2} + P_{2} * (G_{1} + P_{1} * G_{0})) = G_{2} + P_{2} * G_{1} + P_{2} * P_{1} * G_{0}
+C_{3} = G_{3} + P_{3} * C_{2} = G_{3} + P_{3} * (G_{2} + P_{2} * G_{1} + P_{2} * P_{1} * G_{0}) = G_{3} + P_{3} * G_{2} + P_{3} * P_{2} * G_{1} + P_{3} * P_{2} * P_{1} * G_{0}
+
+一般地，使用归纳法可以证明：
+\[
+C_{k}=\sum_{i=0}^{k}G_{i}\prod_{j=i+1}^{k}P_{j}
+\]
+而 S_{k}无非就是 G_{k} XOR C_{k-1}
+
+因此，我们可以并行地计算所有的 C_{i}，从而实现更快的加法器。当然，并行地计算意味着我们不能利用前面计算的结果，因此总计算量变大了。
+
+*** 负数
+我们使用 n 比特表示-2^{n-1}到 2^{n-1}-1 的整数，最高位为符号位，0表示正数，1表示负数。对于负数，我们使用补码表示法，即使用 2^{n}-m 的二进制表示来表示负整数-m，这样我们前面实现的加法器就刚好使 n 个比特位形成一个模 2^{n}的循环群。
+**** 取相反数
+根据上面的说法，我们只要实现取相反数，就可以利用 a-b=a+(-b)实现减法
+要想实现取相反数，只需注意到 2^{n}-m=1+((2^{n}-1)-m)，而 2^{n}-1 的二进制表示就是 n 个 1，因此我们只需要将 m 的每一位取反，然后加 1 即可。也就是说，我们可以使用 NOT 和加法器来实现取相反数。
+
+*** ALU
+所谓 ALU 就是算术逻辑单元，它并不是一个具体的接口规定。总的来说，一个 ALU 就是这样的电路单元，他接受两个参数和一个二元函数，返回用这两个参数调用这个函数的结果。这个函数的集合决定了有多少功能直接被硬件实现，但是即使我们不实现那么多的函数，我们也可以通过在软件层面通过编程实现这些功能。
+
+在这里，我们实现的 ALU 是带有两根输入 x 和 y 一根输出 out 均为 16 位总线的 ALU，函数输入由 6 位总线决定，还有两个比特的控制输出。
+函数包括 0,1,-1,x,y,!x,!y,-x,-y,x+1,y+1,x-1,y-1,x+y,x-y,y-x,x&y,x|y 共 18 种。
+
+函数输入的 6 位总线名分别为 zx,nx,zy,ny,f,no，含义如下：
+- zx: 如果为 1，则将 x 置为 0
+- nx: 如果为 1，则将 x 取反
+- zy: 如果为 1，则将 y 置为 0
+- ny: 如果为 1，则将 y 取反
+- f: 如果为 1，则执行加法，否则执行与运算
+- no: 如果为 1，则输出取反，否则输出原值
+这些输入是按顺序进行的。
+
+控制输出的两个比特名分别为 zr 和 ng，含义如下：
+- zr: 如果输出为 0，则为 1，否则为 0
+- ng: 如果输出为负数，则为 1，否则为 0
+** RAM
+RAM 即随机存取存储器，包括 CPU 中的缓存 SRAM 和内存条中的内存 DRAM，为了方便，笔记中统称为内存。
+*** 时钟
+计算机内部有一个时钟，这个时钟以固定的周期使其电平成方波震荡，我们把时钟的一个周期看作是时间的基本单位。实际上，我们需要在时钟周期的开始的一段时间内等待计算机内部电路稳定，这段时间再加上后面的一小段时间构成了一个时钟周期。当然，我们把稳定后的状态看作是该时钟周期的状态，每个时钟周期都有一个确定的状态，这样只要我们把时钟周期定的足够长，等待电路稳定，就可以使前面描述的组合逻辑成立。
+
+根据输出与输入的关系，我们把逻辑分为两种类型：组合逻辑和时序逻辑。
+- 组合逻辑：out[t] = f(in[t])
+- 时序逻辑：out[t] = f(in[t-1])
+
+*** SR 锁存器
+SR 锁存器是一个时序逻辑电路，具有两个输入 NOT S 和 NOT R，两个输出 Q_{next} 和 NOT Q_{next}，满足：
+| S | R | Q_{next} | NOT Q_{next} |
+|---+---+-------+-----------|
+| 0 | 0 | Q_{now}  | NOT Q_{now}  |
+| 0 | 1 | 0     | 1         |
+| 1 | 0 | 1     | 0         |
+| 1 | 1 | 不允许 | 不允许     |
+即当 S=0,R=0 时，输出保持不变；当 S=0,R=1 时，输出为 0；当 S=1,R=0 时，输出为 1；不允许出现 S=1,R=1 的情况。
+其实现如下：
+
+#+begin_example
+            ________
+NOT S_______|      |________ Q
+       _____| NAND |    |
+      |     |______|    |
+      |________ ________|
+       ________X________
+      |     ________    |
+      |_____|      |____|____ NOT Q
+NOT R_______| NAND |
+            |______|
+
+
+
+#+end_example
+
+*** D 触发器
+我们需要一个基础的触发器，称为 D 触发器，D触发器是一个电路元件，满足：
+out[t] = in[t-1]
+即 D 触发器把这一时钟周期的输入作为下一时钟周期的输出。
+
+设输入信号为 D,时钟信号为 CLK，则只需把 D NAND CLK 和 NOT D NAND CLK 作为 SR 锁存器的 NOT S 和 NOT R 输入即可。
+我们可以把一大堆的 D 触发器放在一起构成一个数组，这基本上就是内存，他可以存储状态，我们在组合逻辑中用输入和存储的状态做一些计算，然后根据计算结果更新状态，这基本就是我们要做的事情。
+
+*** 1-bit 寄存器
+1-bit 寄存器是这样的设备，他有两个输入 in 和 load，有一个输出 out，如果 load[t]=1，则下一时钟周期的 out[t+1]就会等于 in[t]，如果 load[t]=0，那么就保持 out[t+1]=out[t]
+要实现这个功能，我们需要一个 D 触发器，我们把 D 触发器的输出和 in 一起接进 MUX，使用 load 作为 MUX 的 sel 来控制是否加载，然后把 MUX 的输出再插回 D 触发器的输入，这就完成了一个 1-bit 寄存器。
+
+*** RAM Unit
+**** 16-bit 寄存器
+显然，只要我们并列摆放 16 个 1-bit 寄存器，用一根 16 位的总线中每根针脚作为这些 1-bit 寄存器的输入，并使用一个 load 分为 16 份，用于这些 1-bit 寄存器的 load，再把这些 1-bit 寄存器的输出针脚放在一起构成一个 16 位的总线，我们就得到了一个 16-bit 寄存器，16 被称为这个寄存器的宽。类似地，我们可以制作任意宽的寄存器。当前时刻寄存器中存储的值称为寄存器的状态。
+
+**** RAM Unit
+一个 RAM Unit 带有一根数据输入总线 in，一根地址输入总线 address，一位 load 针脚，和一根数据输出总线 out。
+一个 RAM Unit 中有若干被数字编号的寄存器，这些编号称为寄存器的地址。
+我们可以假设，每个时钟周期，我们只关心一个寄存器。
+
+那么 RAM Unit 的行为是这样的，如果 load=1，那么将会把地址为 address 的寄存器中的状态改为 in，下个时钟周期开始 out 将是这个周期 in 的值。如果 load=0，那么将会读取地址为 address 的寄存器，并从下个周期开始，out 将是寄存器的状态。
+
+在本笔记中寄存器将始终是 16-bit 寄存器，因此输入和输出数据总线也是 16-bit 的。而 address 的位数将包括 3,6,9,12,14。
+
+考虑 3 位地址即 RAM8 的情况，RAM8 有 8 个寄存器，地址为 0~7。为了实现 RAM8，我们首先使用 DMux8Way 把 load 信号按 address 分成 8 份，分别连接到 8 个 1-bit 寄存器的 load 输入上。这时，除了地址为 address 的寄存器的 load 为 load 外，其余寄存器的 load 都为 0，这保证了当 load=1 时，只有地址为 address 的寄存器的值会被覆盖。然后我们把输入总线分叉 8 份，连接到寄存器上，八个寄存器输出的八个结果再连到一个 Mux8Way16 上，Mux 的 sel 输入连接到 address，这样 Mux 就会选取地址为 address 的寄存器的输出作为输出总线 out。
+
+实现 RAM8 之后，我们可以把 8 个 RAM8 放在一起，使用 DMux8way 把 load 信号按 address 的后 3 位分成 8 份，连接到每个 RAM8 的 load 输入上，这会选出包含正确地址的寄存器的 RAM8。然后把 address 的前 3 位连接到每个 RAM8 的 address 输入上，得到 8 个输出，再把这 8 个输出连接到一个 Mux8Way16 上，Mux 的 sel 输入连接到 address 的前 3 位，这样 Mux 就会选取正确的 RAM8 的输出作为输出总线 out。
+
+类似地，我们可以实现 RAM64，RAM512，RAM4k，RAM16K 等更大的 RAM Unit。
+
+**** 计数器
+一个计数器是一个电路元件，他有一个输入总线 in，三个一位的控制输入 load，inc 和 reset，以及一个输出总线 out。
+计数器的行为是这样的：
+如果 reset=1，则 out 从下一周期开始被置为 0；
+如果 load=1，则 out 从下一周期开始被置为 in；
+如果 inc=1，则 out 从下一周期开始被置为本周期的 out+1，
+否则 out 保持不变。
+上面的各个条件按顺序进行匹配。
+
+计数器的实现需要使用一个寄存器来存储当前状态，然后寄存器的输入按条件依序使用 MUX 倒推，最后连回寄存器的输出的一个分叉即可。
+
+*** 内存层级
+对于内存来说，越快的内存越贵，也不容易做得更大。因此，在计算机中我们通常会使用多级内存层级来平衡速度和成本。一般来说，在 cpu 内部有一些寄存器，然后还有缓存（SRAM），然后是内存（DRAM），最后是硬盘等外部存储设备。
+
+** 机器语言
+机器语言是软硬件之间的接口，它提供了用软件控制硬件的方式。
+设计一种机器语言大概需要考虑以下几个方面：
+- 他能支持哪些操作
+- 他如何寻址数据
+- 他如何实现控制流
+*** 一些约定和概念
+**** 16-bit 机器
+要设计一个 16-bit 的机器语言，我们首先需要知道 16-bit 机器是怎么工作的。
+总的来说，16-bit 机器包含以下部分：
+- CPU：由我们前面实现的 ALU 构成
+- 指令 RAM：存储机器指令的 RAM
+- 数据 RAM：存储数据的 RAM
+- 总线：连接 CPU、指令 RAM 和数据 RAM 的总线
+
+**** 指令集
+在本笔记中，我们的指令集包含两部分：
+- A 指令
+- C 指令
+这些指令都是 16 位的二进制数。一个程序指的就是一个指令的序列。
+
+**** 控制流
+在本笔记中，我们的计算机有一个 reset 按钮，如果我们要运行程序，需要首先把程序加载到 RAM，然后按下 reset 按钮，计算机就会开始执行程序。
+
+**** 寄存器
+在本笔记中，cpu 中有一个寄存器 A 和一个寄存器 D，寄存器 A 用于存储数据或地址，寄存器 D 用于存储数据。内存中有很多寄存器，使用地址选中的寄存器称为寄存器 M。
+
+*** 指令集
+**** A 指令
+语法：@value，其中 value 是一个十进制非负整数或一个符号名，这个符号关联一个十进制非负整数。这里我们要求这个十进制非负整数小于等于 32767=2^{15}-1。
+语义：把寄存器 A 的值设置为 value 的值，并把 RAM[value]选定为寄存器 M。
+
+下面这段代码把寄存器 A 设为 100，并把 RAM[100] 设为 -1：
+#+begin_example
+@100
+M=-1
+#+end_example
+
+A 指令的二进制版本以 0 开头，后跟 value 的二进制形式。
+
+**** C 指令
+语法：dest=comp;jump，其中 dest 和 jump 都是可选的。
+- comp 指定一个计算，包含下面这些：0, 1, -1, D, A, M, !D, !A, !M, -D, -A, -M, D+1, A+1, M+1, D-1, A-1, M-1, D+A, D+M, D-A, D-M, A-D, M-D, D&A, D&M, D|A, D|M
+- dest 指定一个目的地，包含：null, M, D, MD, A, AM, AD, AMD, 这其实就是\{A, D, M\}的所有子集，其中 null 表示不写入寄存器。
+- jump 指定一个跳转，包含：null, JGT, JEQ, JGE, JLT, JNE, JLE, JMP
+语义：执行 comp 指定的计算，并把结果写入 dest 指定的寄存器，如果 jump 的条件满足，跳到指令 RAM[A]继续执行。
+
+下面这段代码把寄存器 D 设为-1
+#+begin_example
+D=-1
+#+end_example
+
+下面这段代码把 RAM[300]设为 D-1
+#+begin_example
+@300
+M=D-1
+#+end_example
+
+下面这段代码表示如果 D-1==0，则跳转到指令[56]处继续执行
+#+begin_example
+@56
+D-1;JEQ
+#+end_example
+
+C 指令的二进制版本以 1 开头，然后是两位无用位，按约定置为 1，然后是 7 位 comp 位用来指定指令，其中 comp 中最高位记作 a，然后依次是 c1 到 c6。然后是 3 位 dest 位，记作 d1d2d3，然后是 3 位 jump 位，按约定置为 j1j2j3。即 C 指令的二进制形式为 1 1 1 a c1 c2 c3 c4 c5 c6 d1 d2 d3 j1 j2 j3。
+
+注意到 comp 中包含 M 的运算都有对应的包含 A 的版本，所以 a 的值可以用来区分这两种情况。即如果 a=0，则表示使用寄存器 A，否则表示使用寄存器 M。剩下的 comp 位与 ALU 的 6 位控制总线相对应。d1，d2，d3 分别表示寄存器 A、D、M 是否被写入，j1j2j3 分别表示当计算结果为负数、零、正数是否跳转。
+
+*** I/O
+**** 显示器
+在本笔记中，我们的显示器共有 256*512 个单通道像素，这对应着内存中一块 8192 个寄存器构成的区域，每个寄存器存储着一行里连续的 16 个像素是否点亮。
+我们假设显示器设备会读取这个区域的内容，并在每个时钟周期更新显示器的内容。
+**** 键盘
+在本笔记中，我们有一个 16 位寄存器，该寄存器储存着键盘的输入状态。我们可以通过读取这个寄存器来获取键盘的输入状态。
+我们假设键盘设备会在有输入时改变这个寄存器的状态。在键盘没有输入时，该寄存器会被置 0。
+
+*** 低级编程
+在这节中，我们会使用上面介绍的指令来编写一些程序。
+**** 寄存器和内存
+#+begin_example
+// set D to 10
+// there are no directives in this example,
+// so we can use the @ symbol to set A
+// then we can use A to set D
+@10
+D=A
+
+// D++
+D=D+1
+
+// set D to RAM[17]
+@17
+D=M
+
+// set RAM[17] to D
+@17
+M=D
+
+// set RAM[17] to 10
+// as we said, we cannot do it directly.
+// we should use A to get 10
+// and used D as a temporary register
+@10
+D=A
+@17
+M=D
+
+// set RAM[5] to RAM[3]
+@3
+D=M
+@5
+M=D
+
+// RAM[2] = RAM[0] + RAM[1]
+@0
+D=M
+@1
+D=D+M
+@2
+M=D
+
+// cpu will execute the program in order,
+// so if we don't want to execute the next instruction
+// after we end the program,
+// we should use a jump instruction to loop endlessly.
+// RAM[2] = RAM[0] + RAM[1] and then loop endlessly
+@0
+D=M
+@1
+D=D+M
+@2
+M=D
+@6
+0;JMP
+// this line will never be executed
+#+end_example
+
+**** 符号约定
+在[[寄存器和内存][上一节]]中可以看到，A寄存器既可以用来存储数据，也可以用来存储地址，这样会使得程序的可读性变差，因此我们需要一些符号约定来使得程序更易读。
+这些符号被称为虚拟寄存器：R0, R1, R2, ..., R15。Ri 就是数字 i，这有个好处，当我们写@Ri 时，我们知道是要操作寄存器 Ri，而当我们写@i 时，我们是要把 i 作为操作数。
+另外，我们还为显示器和键盘设备定义了两个符号约定：SCREEN=16384, KBD=24576。这是他们内存状态的基地址。
+最后，我们还定义了 5 个符号约定：SP=0, LCL=1, ARG=2, THIS=3, THAT=4。这些符号约定是为了方便之后实现高级语言。
+
+**** 分支、变量和迭代
+***** 分支和标签
+#+begin_example
+// if R0 > 0
+//     R1 = 1
+// else
+//     R1 = 0
+ 0| @R0
+ 1| D=M //get R0
+  | // the assember will ignore any line that is empty, so the line number will not change
+ 2| @8
+ 3| D;JGT // if R0 > 0, jump to line 8
+  |
+ 4| @R1
+ 5| M=0 // else, set R1 to 0
+  |
+ 6| @10
+ 7| 0;JMP // jump to line 10 to loop endlessly
+  |
+ 8| @R1
+ 9| M=1 // if R0 > 0, set R1 to 1
+  |
+10| @10
+11| 0;JMP // loop endlessly
+#+end_example
+我们可以看到使用行号来做分支跳转是非常不可读的，因此我们需要使用标签来做分支跳转。
+在[[A 指令]]中，我们可以规定可以使用符号来代替数字，那么怎么声明符号作为标签呢，我们使用(LABEL)来声明标签 LABEL，需要注意的是，LABEL 不是指令，不计入行数，汇编器会把他之后的第一条指令的行数作为他的值。
+
+按这个约定，以上代码可以改写为：
+#+begin_example
+@R0
+D=M //get R0
+
+@IF_R0_GT_0
+D;JGT // if R0 > 0, jump to IF_R0_GT_0
+
+@R1
+M=0 // else, set R1 to 0
+
+@LOOP
+0;JMP // jump to END_IF_R0_GT_0 to loop endlessly
+
+(IF_R0_GT_0)
+@R1
+M=1 // if R0 > 0, set R1 to 1
+
+(LOOP)
+@LOOP
+0;JMP // loop endlessly
+#+end_example
+
+***** 变量
+为了更方便使用，我们需要变量的概念，他帮助我们自动分配内存中未使用的寄存器。
+如果@后面跟着的符号没有作为标签被声明，他就会被看作是一个变量，变量是一个地址从 16 开始的寄存器，变量的值就是这个寄存器中的值。
+#+begin_example
+// exchange R0 and R1
+// temp = R1
+// R1 = R0
+// R0 = temp
+
+@R1
+D=M
+@temp
+M=D
+
+@R0
+D=M
+@R1
+M=D
+
+@temp
+D=M
+@R0
+M=D
+
+(LOOP)
+@LOOP
+0;JMP
+#+end_example
+
+***** 迭代
+现在，我们来尝试迭代。
+#+begin_example
+// set R1 = sum from 1 to R0
+// n = R0
+// i = 1
+// sum = 0
+// LOOP:
+//   if i > n goto STOP
+//   sum = sum + i
+//   i = i + 1
+//   goto LOOP
+// STOP:
+// R1 = sum
+@R0
+D=M
+@n
+M=D
+
+@i
+M=1
+
+@sum
+M=0
+
+(LOOP)
+@i
+D=M
+@n
+D=D-M
+@STOP
+D;JGT
+
+@sum
+D=M
+@i
+D=D+M
+@sum
+M=D
+
+@i
+M=M+1
+
+@LOOP
+0;JMP
+
+(STOP)
+@sum
+D=M
+@R1
+M=D
+
+(END)
+@END
+0;JMP
+#+end_example
+
+**** 指针和 I/O
+***** 指针
+考虑一个如下的程序：
+#+begin_example
+// set an array of 10 elements to -1
+// for(i = 0; i < 10; i++)
+//     arr[i] = -1
+// assuming address of arr is 100
+// then we should set ARM[100], ARM[101], ..., ARM[109] to -1
+
+// arr=100
+@100
+D=A
+@arr
+M=D
+
+// n=10
+@10
+D=A
+@n
+M=D
+
+// i=0
+@i
+M=0
+
+// translate for loop to goto as follows:
+// LOOP:
+//     if i == n goto END
+//     arr[i] = -1
+//     i = i + 1
+//     goto LOOP
+// END:
+//     goto END
+
+(LOOP)
+@i
+D=W
+@n
+D=D-M
+@END
+D;JEQ
+
+@arr
+D=M
+@i
+A=D+M  //  <-------here
+M=-1
+
+@i
+M=M+1
+
+@LOOP
+0;JMP
+
+(END)
+@END
+0;JMP
+#+end_example
+可以看到我们直接向寄存器 A 中写入了一个地址，这样就可以访问寄存器 A 中的地址对应的寄存器，这就相当于高级语言中的指针。
+
+***** I/O
+接下来，我们尝试写一个 I/O 程序，他会在屏幕的左上角画一个实心的长方形，宽为 16，高为 RAM[0]。
+#+begin_example
+// draw a rectangle on the screen
+// the height of the rectangle is RAM[0]
+// the width of the rectangle is 16
+// the rectangle is drawn at (0, 0) on the screen
+// we assume that the screen is 256*512 pixels
+// we assume that the screen is stored with base address 16384
+// we assume that the rectangle is drawn with color 1
+//
+// n = RAM[0]
+// addr = SCREEN
+// for(i = 0; i < n; i++)
+//     // make each row i's first 16 pixels 1
+//     // which means that set the first register
+//     // of the row to -1
+//     RAM[addr + 32*i] = -1
+// translate for loop to goto as follows:
+//
+// n = RAM[0]
+// addr = SCREEN
+// i = 0
+// row = 32
+// LOOP:
+//     if i == n goto END
+//     // since we can not do multiplication, use addition
+//     RAM[addr] = -1
+//     addr = addr + row
+//     i = i + 1
+//     goto LOOP
+// END:
+//     goto END
+
+@R0
+D=M
+@n
+M=D
+
+@SCREEN
+D=A
+@addr
+M=D
+
+@i
+M=0
+
+@32
+D=A
+@row
+M=D
+
+(LOOP)
+@i
+D=M
+@n
+D=D-M
+@END
+D;JEQ
+
+@addr
+A=M
+M=-1
+
+@row
+D=M
+@addr
+M=D+M
+
+@i
+M=M+1
+
+@LOOP
+0;JMP
+
+(END)
+@END
+0;JMP
+#+end_example
+
+** 计算机体系结构
+*** 冯诺依曼架构
+冯诺依曼架构的计算机有以下几个部分：
+- CPU：中央处理器，负责执行指令和处理数据
+- 内存：存储指令和数据的存储器
+- 输入设备：用于输入数据的设备，如键盘、鼠标等
+- 输出设备：用于输出数据的设备，如显示器、打印机等
+- 总线：连接 CPU、内存和输入输出设备的通信通道
+在[[ALU][前面的章节]]中，我们实现了 CPU 的基础单元 ALU，在[[RAM][另外的章节]]中，我们实现了内存 RAM ，在[[*I/O][上一节]]中，我们接受了输入输出设备的操作接口，在[[*逻辑门][逻辑门一节]]中，我们介绍了总线。
+冯诺依曼架构的所有组件都已经齐全，接下来我们将介绍如何使用这些组件来实现计算机的功能。
+
+*** CPU
+在本笔记中，我们的 CPU 是一个 16-bit 处理器，它主要有两个功能：
+- 执行[[*机器语言][机器语言一节]]中定义的指令，当然这里说的二进制形式的指令
+- 计算下一个要执行指令的地址
+
+具体来说，我们的 CPU 具有如下的接口：
+- inM：来自数据 RAM 的输入总线，16 位
+- instruction：来自指令 RAM 的输入总线，16 位
+- reset：来自用户的输入，1位
+- outM：输出到数据 RAM 的总线，16 位，用来输出数据
+- writeM：输出到数据 RAM 的写入信号，1位
+- addressM：输出到数据 RAM 的地址总线，15 位，用来指定要写入或读取的寄存器地址
+- pc：程序计数器，15 位，用来发送下一条指令的地址到指令 RAM
+
+我们可以使用如下方式实现 CPU：
+首先，我们需要一个指令解析器，它可以解析指令，判断是 A 指令还是 C 指令，并据此发出相应的控制信号。
+然后，我们需要一个 A 寄存器和一个 D 寄存器，这就是机器语言中的寄存器 A 和寄存器 D。
+接下来，我们需要一个 Mux 来选择 A 寄存器或 M 寄存器作为 ALU 的输入。
+最后我们还需要一个跳转控制器和一个 PC 寄存器来实现控制流。
+
+下面是这个 CPU 的实现。
+#+begin_example
+CHIP CPU {
+
+    IN  inM[16],         // M value input  (M = contents of RAM[A])
+        instruction[16], // Instruction for execution
+        reset;           // Signals whether to re-start the current
+                         // program (reset==1) or continue executing
+                         // the current program (reset==0).
+
+    OUT outM[16],        // M value output
+        writeM,          // Write to M?
+        addressM[15],    // Address in data memory (of M)
+        pc[15];          // address of next instruction
+
+    PARTS:
+        // Instruction parser, consists of two parts:
+        // 1. A-instruction handler, which handles A-instructions
+        // 2. C-instruction handler, which handles C-instructions
+        // instruction[15] = 0 means A-instruction, otherwise C-instruction
+        //
+        // A-instruction handler
+        // if instruction[15] == 0, then
+        //    doWriteA = instruction[0..14]
+        //    writeAinAInstruction = 1
+        // else
+        //    doWriteA = instruction[0..14] //here can be any value, but we will not use it
+        //    writeAinAInstruction = 0
+        Not(in=instruction[15], out=writeAinAInstruction);
+
+        // C-instruction handler
+        // if instruction[15] == 1, then
+        //    AorMisM = instruction[12] // 0 means A, 1 means M
+        //    zx = instruction[11]
+        //    nx = instruction[10]
+        //    zy = instruction[9]
+        //    ny = instruction[8]
+        //    f = instruction[7]
+        //    no = instruction[6]
+        //    writeAinCInstruction = instruction[5]
+        //    writeD = instruction[4]
+        //    writeM = instruction[3]
+        //    jumpWhenPositive = instruction[2]
+        //    jumpWhenZero = instruction[1]
+        //    jumpWhenNegative = instruction[0]
+        // else
+        //    AorMisM = instruction[12]  // 0 means A, 1 means M
+        //    zx = instruction[11]
+        //    nx = instruction[10]
+        //    zy = instruction[9]
+        //    ny = instruction[8]
+        //    f = instruction[7]
+        //    no = instruction[6]
+        //    writeAinCInstruction = 0
+        //    writeD = 0
+        //    writeM = 0
+        //    jumpWhenPositive = 0
+        //    jumpWhenZero = 0
+        //    jumpWhenNegative = 0
+        Mux(a=false, b=instruction[5], sel=instruction[15], out=writeAinCInstruction);
+        Mux(a=false, b=instruction[4], sel=instruction[15], out=writeD);
+        Mux(a=false, b=instruction[3], sel=instruction[15], out=writeM);
+        Mux(a=false, b=instruction[2], sel=instruction[15], out=jumpWhenNegative);
+        Mux(a=false, b=instruction[1], sel=instruction[15], out=jumpWhenZero);
+        Mux(a=false, b=instruction[0], sel=instruction[15], out=jumpWhenPositive);
+
+        // writeAinCInstruction = writeAinAInstruction or writeAinCInstruction
+        Or(a=writeAinAInstruction, b=writeAinCInstruction, out=writeA);
+
+        // inputA = if writeAinAInstruction then instruction else outputALU
+        Mux16(a=outputALU, b=instruction, sel=writeAinAInstruction, out=inputA);
+
+        // A register
+        Register(in=inputA, load=writeA, out=outA, out[0..14]=addressM);
+
+        // D register
+        Register(in=outputALU, load=writeD, out=outD);
+
+        // Mux to decide whether to use A or M
+        Mux16(a=outA, b=inM, sel=instruction[12], out=inputYofALU);
+
+        // ALU
+        ALU(
+        x=outD,
+        y=inputYofALU,
+        zx=instruction[11],
+        nx=instruction[10],
+        zy=instruction[9],
+        ny=instruction[8],
+        f=instruction[7],
+        no=instruction[6],
+        out=outputALU,
+        out=outM,
+        zr=zr,
+        ng=ng);
+
+        // deal with jump
+        Or(a=zr, b=ng, out=zrOrNg);
+        Not(in=zrOrNg, out=po); // po means positive
+        And(a=zr, b=jumpWhenZero, out=jumpWhenZeroAndZero);
+        And(a=ng, b=jumpWhenNegative, out=jumpWhenNegativeAndNegative);
+        And(a=po, b=jumpWhenPositive, out=jumpWhenPositiveAndPositive);
+        Or(a=jumpWhenZeroAndZero, b=jumpWhenNegativeAndNegative, out=jumpWhenZeroOrNegative);
+        Or(a=jumpWhenZeroOrNegative, b=jumpWhenPositiveAndPositive, out=jumpCondition);
+
+        // PC
+        PC(in=outA, load=jumpCondition, inc=true, reset=reset, out[0..14]=pc);
+
+   }
+#+end_example
+
+*** 计算机实现
+把上面的 cpu 和 RAM、I/O 设备连接起来，我们就得到了一个计算机。
+计算机的实现如下图所示：
+[[./computer.png]]
+其中的 ROM32K 指的就是指令 RAM。
+
+** 汇编器
+由于我们的机器语言的简单性，我们的汇编器也相当简单。
+要制作这个汇编器，大概分成三步：
+- 预处理：去除空格和注释，分离标签定义和指令
+- 解析单条指令：分别处理 A 指令和 C 指令，对于 A 指令，需要处理符号，符号不是标签就是变量。C指令的各部分则使用=和;分隔（只要注意 option 的情况即可）
+- 翻译成二进制：A指令只要把十进制转成二进制即可，C指令也只要查表对译即可。
+
+#+begin_src python
+import argparse
+from typing import Optional
+
+
+class Instruction:
+    def to_binary(self) -> str:
+        raise NotImplementedError("Subclasses should implement this method")
+
+
+class AInstruction(Instruction):
+    def __init__(self, value: int) -> None:
+        self.value = value
+
+    def __repr__(self) -> str:
+        return f"@{self.value}"
+
+    def to_binary(self) -> str:
+        return f"{self.value:016b}"
+
+
+class CInstruction(Instruction):
+    def __init__(self, dest: Optional[str], comp: str, jump: Optional[str]) -> None:
+        self.dest = dest
+        self.comp = comp
+        self.jump = jump
+
+    def __repr__(self) -> str:
+        dest_str = f"{self.dest}=" if self.dest else ""
+        jump_str = f";{self.jump}" if self.jump else ""
+        return f"{dest_str}{self.comp}{jump_str}"
+
+    def to_binary(self) -> str:
+        dest_bits = self.dest_to_bits(self.dest)
+        comp_bits = self.comp_to_bits(self.comp)
+        jump_bits = self.jump_to_bits(self.jump)
+        return f"111{comp_bits}{dest_bits}{jump_bits}"
+
+    def dest_to_bits(self, dest: Optional[str]) -> str:
+        dest_table = {
+            None: "000",
+            "M": "001",
+            "D": "010",
+            "MD": "011",
+            "A": "100",
+            "AM": "101",
+            "AD": "110",
+            "AMD": "111",
+        }
+        return dest_table.get(dest, "000")
+
+    def comp_to_bits(self, comp: str) -> str:
+        comp_table = {
+            "0": "0101010",
+            "1": "0111111",
+            "-1": "0111010",
+            "D": "0001100",
+            "A": "0110000",
+            "!D": "0001101",
+            "!A": "0110001",
+            "-D": "0001111",
+            "-A": "0110011",
+            "D+1": "0011111",
+            "A+1": "0110111",
+            "D-1": "0001110",
+            "A-1": "0110010",
+            "D+A": "0000010",
+            "D-A": "0010011",
+            "A-D": "0000111",
+            "D&A": "0000000",
+            "D|A": "0010101",
+            "M": "1110000",
+            "!M": "1110001",
+            "-M": "1110011",
+            "M+1": "1110111",
+            "M-1": "1110010",
+            "D+M": "1000010",
+            "D-M": "1010011",
+            "M-D": "1000111",
+            "D&M": "1000000",
+            "D|M": "1010101",
+        }
+        return comp_table.get(comp, "0000000")
+
+    def jump_to_bits(self, jump: Optional[str]) -> str:
+        jump_table = {
+            None: "000",
+            "JGT": "001",
+            "JEQ": "010",
+            "JGE": "011",
+            "JLT": "100",
+            "JNE": "101",
+            "JLE": "110",
+            "JMP": "111",
+        }
+        return jump_table.get(jump, "000")
+
+
+class Assember:
+    def __init__(self, asm: str) -> None:
+        self.tagsTable: dict[str, int] = {
+            "R0": 0,
+            "R1": 1,
+            "R2": 2,
+            "R3": 3,
+            "R4": 4,
+            "R5": 5,
+            "R6": 6,
+            "R7": 7,
+            "R8": 8,
+            "R9": 9,
+            "R10": 10,
+            "R11": 11,
+            "R12": 12,
+            "R13": 13,
+            "R14": 14,
+            "R15": 15,
+            "SCREEN": 16384,
+            "KBD": 24576,
+            "SP": 0,
+            "LCL": 1,
+            "ARG": 2,
+            "THIS": 3,
+            "THAT": 4,
+        }
+        self.varTable: dict[str, int] = {}
+        self.instructions = [self.str_to_instruction(ins) for ins in self.cut(asm)]
+        self.binary = [ins.to_binary() for ins in self.instructions]
+
+    def cut(self, asm: str) -> list[str]:
+        instructions = []
+        instruction_current = ""
+        iscomment = False
+        meetaslash = False
+        isTag = False
+        line_number = 0
+        tag_current = ""
+        for char in asm:
+            if char == "\n":
+                if instruction_current != "":
+                    instructions.append(instruction_current)
+                    instruction_current = ""
+                    line_number += 1
+                iscomment = False
+            elif char == "/":
+                if meetaslash:
+                    iscomment = True
+                    meetaslash = False
+                else:
+                    meetaslash = True
+            elif char == "(":
+                if not iscomment:
+                    isTag = True
+            elif char == ")":
+                if isTag:
+                    self.tagsTable[tag_current] = line_number
+                    isTag = False
+                    tag_current = ""
+                else:
+                    if not iscomment:
+                        raise ValueError("Unmatched opening parenthesis")
+            else:
+                if not iscomment and char != " ":
+                    if isTag:
+                        tag_current += char
+                    else:
+                        instruction_current += char
+        if instruction_current != "":
+            instructions.append(instruction_current)
+        return instructions
+
+    def str_to_instruction(self, instruction: str) -> Instruction:
+        if instruction.startswith("@"):
+            value = instruction[1:]
+            if value.isdigit():
+                return AInstruction(int(value))
+            elif value in self.tagsTable:
+                return AInstruction(self.tagsTable[value])
+            elif value in self.varTable:
+                return AInstruction(self.varTable[value])
+            else:
+                new_var = len(self.varTable) + 16  # Start from R16
+                self.varTable[value] = new_var
+                return AInstruction(new_var)
+        else:
+            parts = instruction.split(";")
+            comp_dest = parts[0].split("=")
+            comp = comp_dest[-1]
+            dest = comp_dest[0] if len(comp_dest) > 1 else None
+            jump = parts[1] if len(parts) > 1 else None
+            return CInstruction(dest, comp, jump)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Read a file into a string.")
+    parser.add_argument("filepath", help="Path to the file to read")
+    parser.add_argument("-o", help="Output file path", default="output.hack")
+    args = parser.parse_args()
+    with open(args.filepath, "r") as f:
+        content = f.read()
+    assember = Assember(content)
+    with open(args.o, "w") as f:
+        for line in assember.binary:
+            f.write(line + "\n")
+
+
+if __name__ == "__main__":
+    main()
+
+#+end_src
+
+* 软件
+在[[硬件]]部分，我们从 NAND 门开始，从头实现了一个可以运行的计算机，并设计了其机器语言和汇编器，现在我们要在这个计算机上构建操作系统和高级语言。
