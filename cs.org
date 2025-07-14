@@ -1001,3 +1001,498 @@ if __name__ == "__main__":
 
 * 软件
 在[[硬件]]部分，我们从 NAND 门开始，从头实现了一个可以运行的计算机，并设计了其机器语言和汇编器，现在我们要在这个计算机上构建操作系统和高级语言。
+
+** 虚拟机
+*** 栈式虚拟机
+我们的虚拟机将包含一个栈和若干个内存段，栈是一个后进先出的数据结构，并带有一个栈顶指针，而内存段是一个可以随机读写的数据结构，类似于数组。
+我们还将为虚拟机实现 4 类指令：
+- 算术逻辑指令
+- 内存段指令
+- 控制流指令
+- 函数指令
+**** 算术逻辑指令
+算术逻辑指令包括：
+| command | Return value | Return value type |
+|---------+--------------+-------------------|
+| add     | x+y          | int               |
+| sub     | x-y          | int               |
+| neg     | -y           | int               |
+| eq      | x==y         | boolean           |
+| gt      | x>y          | boolean           |
+| lt      | x<y          | boolean           |
+| and     | x and y      | boolean           |
+| or      | x or y       | boolean           |
+| not     | not y        | boolean           |
+
+其中，x 和 y 是栈顶的两个元素，栈的示意图如下：
+
+     |-----|
+     | ... |
+     | x   |
+     | y   |
+SP-->|     |
+
+其中 SP 是栈顶指针，指向栈顶元素的下一个位置。
+***** 实现
+在我们的实现中，我们规定栈底在 RAM[256]，栈顶指针 SP 存储在 RAM[0] 中。
+我们可以轻松地实现这些指令：
+
+#+begin_example
+// add
+// SP = SP - 1
+// y = RAM[SP]
+// SP = SP - 1
+// x = RAM[SP]
+// RAM[SP] = x + y
+// SP = SP + 1
+@SP
+M=M-1
+
+A=M
+D=M
+
+@SP
+M=M-1
+
+A=M
+M=D+M
+
+@SP
+M=M+1
+
+// sub
+// SP = SP - 1
+// y = RAM[SP]
+// SP = SP - 1
+// x = RAM[SP]
+// RAM[SP] = x - y
+// SP = SP + 1
+@SP
+M=M-1
+
+A=M
+D=M
+
+@SP
+M=M-1
+
+A=M
+M=M-D
+
+@SP
+M=M+1
+
+// neg
+// SP = SP - 1
+// y = RAM[SP]
+// RAM[SP] = -y
+// SP = SP + 1
+@SP
+M=M-1
+
+A=M
+M=-M
+
+@SP
+M=M+1
+
+// eq
+// SP = SP - 1
+// y = RAM[SP]
+// SP = SP - 1
+// x = RAM[SP]
+// let z = x - y
+// if z == 0 goto EQ_TRUE
+// RAM[SP] = 0
+// goto EQ_END
+// EQ_TRUE:
+// RAM[SP] = 1
+// EQ_END:
+@SP
+M=M-1
+
+A=M
+D=M
+
+@SP
+M=M-1
+
+A=M
+
+D=D-M
+
+@EQ_TRUE
+D;JEQ
+
+@SP
+A=M
+M=0
+
+@EQ_END
+0;JMP
+
+(EQ_TRUE)
+@SP
+A=M
+M=1
+
+(EQ_END)
+
+// gt
+// SP = SP - 1
+// y = RAM[SP]
+// SP = SP - 1
+// x = RAM[SP]
+// let z = x - y
+// if z > 0 goto GT_TRUE
+// RAM[SP] = 0
+// goto GT_END
+// GT_TRUE:
+// RAM[SP] = 1
+// GT_END:
+@SP
+M=M-1
+
+A=M
+D=M
+
+@SP
+M=M-1
+
+A=M
+D=D-M
+
+@GT_TRUE
+D;JGT
+
+@SP
+A=M
+M=0
+
+@GT_END
+0;JMP
+
+(GT_TRUE)
+@SP
+A=M
+M=1
+
+(GT_END)
+
+// lt
+// SP = SP - 1
+// y = RAM[SP]
+// SP = SP - 1
+// x = RAM[SP]
+// let z = x - y
+// if z < 0 goto LT_TRUE
+// RAM[SP] = 0
+// goto LT_END
+// LT_TRUE:
+// RAM[SP] = 1
+// LT_END:
+@SP
+M=M-1
+
+A=M
+D=M
+
+@SP
+M=M-1
+
+A=M
+D=D-M
+
+@LT_TRUE
+D;JLT
+
+@SP
+A=M
+M=0
+
+@LT_END
+0;JMP
+
+(LT_TRUE)
+@SP
+A=M
+M=1
+
+(LT_END)
+
+// and
+// SP = SP - 1
+// y = RAM[SP]
+// SP = SP - 1
+// x = RAM[SP]
+// RAM[SP] = x and y
+// SP = SP + 1
+@SP
+M=M-1
+
+A=M
+D=M
+
+@SP
+M=M-1
+
+A=M
+M=D&M
+
+@SP
+M=M+1
+
+// or
+// SP = SP - 1
+// y = RAM[SP]
+// SP = SP - 1
+// x = RAM[SP]
+// RAM[SP] = x or y
+// SP = SP + 1
+@SP
+M=M-1
+
+A=M
+D=M
+
+@SP
+M=M-1
+
+A=M
+M=D|M
+
+@SP
+M=M+1
+
+// not
+// SP = SP - 1
+// y = RAM[SP]
+// RAM[SP] = not y
+// SP = SP + 1
+@SP
+M=M-1
+
+A=M
+M=!M
+
+@SP
+M=M+1
+#+end_example
+
+**** 内存段指令
+我们有 4 个内存段：
+- local：用于存储局部变量
+- argument：用于存储函数参数
+- this：用于存储当前对象的属性
+- that：用于存储当前数组的属性
+- constant：纯粹虚拟的内存段，constant[i] 就只是 i。
+- static：用于存储静态变量
+- temp：用于存储 this 和 that 的值的内存段
+- pointer：用于存储指向对象的指针
+
+我们的内存段指令无非就是
+push/pop segment index
+其中 segment 是内存段的名称，index 是索引。
+push 指令的语义是把内存段 segment 中的 index 位置的值压入栈顶，pop 指令的语义是把栈顶的值弹出，并用其覆盖内存段 segment 中的 index 位置。
+
+***** 实现
+在我们的实现中，我们把 local, argument, this， that 的基地址分别放在 RAM[1]，RAM[2]，RAM[3]，RAM[4] 中。
+于是我们可以用如下的方式实现 local, argument, this, that 的 push 和 pop 指令：
+
+#+begin_example
+// push segment i
+// where segment is one of local, argument, this, that
+// here we use {segment} for one of LCL, ARG, THIS, THAT
+// and use {i} a perticular number
+//
+// x = RAM[segment_base + i]
+// RAM[SP] = x
+// SP = SP + 1
+@{segment}
+D=M
+
+@{i}
+A=D+A
+D=M
+
+@SP
+A=M
+M=D
+
+@SP
+M=M+1
+
+// pop segment i
+// we have the same {segment} and {i} as above
+//
+// SP = SP - 1
+// x = RAM[SP]
+// RAM[segment_base + i] = x
+//
+// we can do it by using a temporary register R13
+// to store the address of RAM[segment_base + i]
+// just like the following.
+// but we can do it another way by following:
+//
+// @SP
+// M = M - 1
+// A = M
+// D = M       // D = x
+//
+// @{segment}
+// D = D + M   // D = x + segment_base
+// @{i}
+// D = D + A   // D = x + segment_base + i
+//
+// @SP
+// A = M
+// A = M       // A = x
+// A = D - A   // A = segment_base + i
+// M = D - A   // M = x
+//
+// but we will use the first way
+// to make it more readable
+@{segment}
+D=M
+@{i}
+D=D+A
+
+@R13
+M=D
+
+@SP
+M=M-1
+A=M
+D=M
+
+@R13
+A=M
+M=D
+#+end_example
+
+对于 constant 内存段，我们不需要实现 pop，而 push 指令可以直接使用如下的方式实现：
+
+#+begin_example
+// push constant i
+// RAM[SP] = i
+// SP = SP + 1
+@{i}
+D=A
+@SP
+A=M
+M=D
+
+@SP
+M=M+1
+#+end_example
+
+对于 static 内存段，我们通过在 asm 中设置变量来实现，对于文件 Foo.asm 中的静态变量 static i，我们可以在汇编代码中使用 Foo.i 来表示。
+
+#+begin_example
+// push static i
+// assume the file name is "Foo.asm"
+// RAM[SP] = Foo.i
+// SP = SP + 1
+@Foo.{i}
+D=M
+@SP
+A=M
+M=D
+
+@SP
+M=M+1
+
+// pop static i
+// assume the file name is "Foo.asm"
+// SP = SP - 1
+// Foo.i = RAM[SP]
+@SP
+M=M-1
+
+A=M
+D=M
+@Foo.{i}
+M=D
+#+end_example
+
+对于 temp 内存段，我们规定使用 RAM[5] 到 RAM[12] 来存储 temp 的值，因此我们可以使用如下的方式实现 push 和 pop 指令：
+
+#+begin_example
+// push temp i
+// RAM[SP] = RAM[5 + i]
+// SP = SP + 1
+@{i}
+D=A
+@5
+A=D+A
+D=M
+@SP
+A=M
+M=D
+
+@SP
+M=M+1
+
+// pop temp i
+// SP = SP - 1
+// RAM[5 + i] = RAM[SP]
+@{i}
+D=A
+@5
+D=D+A
+@R13
+M=D
+
+@SP
+M=M-1
+A=M
+D=M
+@R13
+A=M
+M=D
+#+end_example
+
+对于 pointer 内存段，他只包含 THIS 和 THAT 两个指针，我们可以使用如下的方式实现 push 和 pop 指令：
+#+begin_example
+// push pointer i
+// where i is 0 or 1
+// if i == 0, then push THIS
+// if i == 1, then push THAT
+// RAM[SP] = RAM[3 + i]
+// SP = SP + 1
+@{i}
+D=A
+@3
+A=D+A
+D=M
+@SP
+A=M
+M=D
+
+@SP
+M=M+1
+
+// pop pointer i
+// where i is 0 or 1
+// if i == 0, then pop THIS
+// if i == 1, then pop THAT
+// SP = SP - 1
+// RAM[3 + i] = RAM[SP]
+@{i}
+D=A
+@3
+D=D+A
+@R13
+M=D
+
+@SP
+M=M-1
+
+A=M
+D=M
+@R13
+A=M
+M=D
+#+end_example
+
+**** 控制流指令
