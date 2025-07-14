@@ -1024,6 +1024,8 @@ if __name__ == "__main__":
 | or      | x or y       | boolean           |
 | not     | not y        | boolean           |
 
+值得注意的是，我们使用-1 表示 true，0 表示 false。之所以使用-1 而不是 1，是因为我们使用的是 16 位寄存器，而 1 在 16 位寄存器中表示为 0000 0000 0000 0001，而 -1 在 16 位寄存器中表示为 1111 1111 1111 1111，这样可以直接利用按位与和按位或来实现逻辑运算。
+
 其中，x 和 y 是栈顶的两个元素，栈的示意图如下：
 
      |-----|
@@ -1106,8 +1108,12 @@ M=M+1
 // RAM[SP] = 0
 // goto EQ_END
 // EQ_TRUE:
-// RAM[SP] = 1
+// RAM[SP] = -1
 // EQ_END:
+// SP = SP + 1
+// we should carefully handle the tag name since
+// we cannot name many tags the same,
+// see the python code for more details
 @SP
 M=M-1
 
@@ -1134,9 +1140,11 @@ M=0
 (EQ_TRUE)
 @SP
 A=M
-M=1
+M=-1
 
 (EQ_END)
+@SP
+M=M+1
 
 // gt
 // SP = SP - 1
@@ -1148,8 +1156,9 @@ M=1
 // RAM[SP] = 0
 // goto GT_END
 // GT_TRUE:
-// RAM[SP] = 1
+// RAM[SP] = -1
 // GT_END:
+// SP = SP + 1
 @SP
 M=M-1
 
@@ -1160,7 +1169,7 @@ D=M
 M=M-1
 
 A=M
-D=D-M
+D=M-D
 
 @GT_TRUE
 D;JGT
@@ -1175,9 +1184,11 @@ M=0
 (GT_TRUE)
 @SP
 A=M
-M=1
+M=-1
 
 (GT_END)
+@SP
+M=M+1
 
 // lt
 // SP = SP - 1
@@ -1189,8 +1200,9 @@ M=1
 // RAM[SP] = 0
 // goto LT_END
 // LT_TRUE:
-// RAM[SP] = 1
+// RAM[SP] = -1
 // LT_END:
+// SP = SP + 1
 @SP
 M=M-1
 
@@ -1201,7 +1213,7 @@ D=M
 M=M-1
 
 A=M
-D=D-M
+D=M-D
 
 @LT_TRUE
 D;JLT
@@ -1216,9 +1228,11 @@ M=0
 (LT_TRUE)
 @SP
 A=M
-M=1
+M=-1
 
 (LT_END)
+@SP
+M=M+1
 
 // and
 // SP = SP - 1
@@ -1415,7 +1429,7 @@ D=M
 M=D
 #+end_example
 
-对于 temp 内存段，我们规定使用 RAM[5] 到 RAM[12] 来存储 temp 的值，因此我们可以使用如下的方式实现 push 和 pop 指令：
+对于 temp 内存段，我们规定使用 RAM[5] 到 RAM[12] 来存储 temp 的值，因此我们可以使用如下的方式实现 push 和 pop 指令(值得注意的是，其实我们可以在 vm 翻译器中把要读取的地址直接算出来，这样可以节省相当多代码，具体细节见 python 代码)：
 
 #+begin_example
 // push temp i
