@@ -1,4 +1,5 @@
 #+title: CS笔记
+#+startup: overview
 * 硬件
 ** 布尔函数
 *** 布尔函数的定义
@@ -36,7 +37,7 @@ F_{\infty} = \bigcup_{n=0}^{\infty} F_n
 |   0 |   0 | ... |   0 | f_2                   |
 |   0 |   0 | ... |   1 | f_3                   |
 | ... | ... | ... | ... | ...                   |
-|   1 |   1 | ... |   1 | f_{2^n-1}                |
+|   1 |   1 | ... |   1 | f_{2^n-1}             |
 
 为了构造他，我们可以先考虑\(\{f_0, f_1, ..., f_{2^n-1}\}\)中有且仅有\(f_i\)为 1 的情况，这样的函数只要用 NOT 和 AND 就可以构造出来。然后我们可以用 OR 将实际上\(f\)为 1 的行对应的函数组合起来。对于全都为 0 的情况，我们可以用一个恒为 0 的函数（比如 x AND (NOT x)）来表示。
 
@@ -143,11 +144,11 @@ RAM 即随机存取存储器，包括 CPU 中的缓存 SRAM 和内存条中的�
 *** SR 锁存器
 SR 锁存器是一个时序逻辑电路，具有两个输入 NOT S 和 NOT R，两个输出 Q_{next} 和 NOT Q_{next}，满足：
 | S | R | Q_{next} | NOT Q_{next} |
-|---+---+-------+-----------|
+|---+---+----------+--------------|
 | 0 | 0 | Q_{now}  | NOT Q_{now}  |
-| 0 | 1 | 0     | 1         |
-| 1 | 0 | 1     | 0         |
-| 1 | 1 | 不允许 | 不允许     |
+| 0 | 1 | 0        | 1            |
+| 1 | 0 | 1        | 0            |
+| 1 | 1 | 不允许    | 不允许        |
 即当 S=0,R=0 时，输出保持不变；当 S=0,R=1 时，输出为 0；当 S=1,R=0 时，输出为 1；不允许出现 S=1,R=1 的情况。
 其实现如下：
 
@@ -787,7 +788,7 @@ CHIP CPU {
 - 预处理：去除空格和注释，分离标签定义和指令
 - 解析单条指令：分别处理 A 指令和 C 指令，对于 A 指令，需要处理符号，符号不是标签就是变量。C指令的各部分则使用=和;分隔（只要注意 option 的情况即可）
 - 翻译成二进制：A指令只要把十进制转成二进制即可，C指令也只要查表对译即可。
-具体实现见 python 代码。
+具体实现见[[./python_code/assember.py][python 代码]]。
 
 * 软件
 在[[硬件]]部分，我们从 NAND 门开始，从头实现了一个可以运行的计算机，并设计了其机器语言和汇编器，现在我们要在这个计算机上构建操作系统和高级语言。
@@ -1219,7 +1220,7 @@ D=M
 M=D
 #+end_example
 
-对于 temp 内存段，我们规定使用 RAM[5] 到 RAM[12] 来存储 temp 的值，因此我们可以使用如下的方式实现 push 和 pop 指令(值得注意的是，其实我们可以在 vm 翻译器中把要读取的地址直接算出来，这样可以节省相当多代码，具体细节见 python 代码)：
+对于 temp 内存段，我们规定使用 RAM[5] 到 RAM[12] 来存储 temp 的值，因此我们可以使用如下的方式实现 push 和 pop 指令(值得注意的是，其实我们可以在 vm 翻译器中把要读取的地址直接算出来，这样可以节省相当多代码，具体细节见[[./python_code/vm_translator.py][python 代码]])：
 
 #+begin_example
 // push temp i
@@ -1300,3 +1301,187 @@ M=D
 #+end_example
 
 **** 控制流指令
+我们的控制流指令包括：
+
+- label <label> : 声明一个标签
+- goto <label> ：无条件跳转到标签处
+- if-goto <label> ：如果栈顶元素非零，则跳转到标签处
+
+***** 实现
+#+begin_example
+// label <label>
+// we use {label} to represent <label> here
+// and we assume the function name is represented by {function_current}
+// and file name is represented by {file_name}
+({file_name}.{function_current}${label})
+
+// goto <label>
+@{file_name}.{function_current}${label}
+0;JMP
+
+// if-goto <label>
+// SP = SP - 1
+// if RAM[SP] != 0 goto <label>
+@SP
+AM=M-1
+D=M
+
+@{file_name}.{function_current}${label}
+D;JNE
+#+end_example
+
+**** 函数指令
+函数指令包括：
+- function <name> <nVars> ：声明一个函数，函数名为 <name>，并分配 <nVars> 个局部变量
+- call <name> <nArgs> ：调用函数 <name>，并传入 <nArgs> 个参数
+- return ：从函数中返回
+
+为此，我们需要制定调用约定：
+- 调用者：
+  + 调用者在调用前把参数压入栈中
+  + 调用者在调用前把返回地址压入栈中
+  + 调用者在调用前把自己的状态保存在栈中，具体来说
+    - 把 LCL 的值压入栈中
+    - 把 ARG 的值压入栈中
+    - 把 THIS 的值压入栈中
+    - 把 THAT 的值压入栈中
+  + 调用者在调用前把 ARG 设置为 SP - nArgs - 5，这样被调用函数就可以通过 ARG 寄存器访问参数
+  + 调用者在调用前把 LCL 设置为 SP，这样被调用函数就可以通过 LCL 寄存器访问局部变量
+  + 做完上述操作后，调用者就可以通过 goto 跳转到被调用函数的开头，注意要在把返回地址标签插入到 goto 后
+- 被调用者：
+  + 被调用者应该生成标签作为入口
+  + 被调用者应该自己初始化 LCL
+  + 被调用者在返回前应该把返回值压到栈顶
+  + 被调用者在返回前应该负责把 LCL 和返回地址保存到临时变量中，这是因为后面恢复被调用者状态和回收资源时会覆盖掉这些值在栈中保存的值
+  + 被调用者做完上述事情后应该负责把返回值送到调用者的栈顶，即现在 ARG 基地址的位置，并把 SP 设置为调用者的栈顶，即 ARG+1
+  + 被调用者应该负责恢复调用者的状态，即把调用者的 LCL、ARG、THIS、THAT 的值从栈中弹出，并设置到相应的寄存器中
+  + 被调用者应该负责跳转到返回地址标签处
+
+***** 实现
+#+begin_example
+// function <name> <nVars>
+// we use {function_name} to represent <name> here
+// and use {nVars} to represent <nVars> here
+// and we assume the file name is represented by {file_name}
+// since we know <nVars> when translating the vm code,
+// we can manually repeat nVars times for push constant 0
+({file_name}.{function_name})
+@SP
+A=M
+M=0
+@SP
+M=M+1 // push constant 0, repeat {nVars} times
+
+// call <name> <nArgs>
+// we use {i} to represent the i times we call other functions
+// in this function
+@{file_name}.{function_current}$ret.{i}
+D=A
+
+@SP
+A=M
+M=D
+@SP
+M=M+1 // push return address
+
+@LCL
+D=M
+@SP
+A=M
+M=D
+@SP
+M=M+1
+
+@ARG
+D=M
+@SP
+A=M
+M=D
+@SP
+M=M+1
+
+@THIS
+D=M
+@SP
+A=M
+M=D
+@SP
+M=M+1
+
+@THAT
+D=M
+@SP
+A=M
+M=D
+@SP
+M=M+1 // save the state of caller
+
+@{nArgs+5}
+D=A
+@SP
+D=M-D
+@ARG
+M=D // set ARG to SP - nArgs - 5
+
+@SP
+D=M
+@LCL
+M=D // set LCL to SP
+
+@{file_name}.{function_name} // jump to the function
+0;JMP
+
+({file_name}.{function_current}$ret.{i}) // return address label, remember i++ in the vm translator
+
+// return
+@LCL
+D=M
+@R13
+M=D // save LCL to R13
+
+@5
+A=D-A
+D=M
+@R14
+M=D // save rerAddr to R14
+
+@SP
+A=M-1
+D=M
+
+@ARG
+A=M
+M=D // save return value to ARG
+
+D=A+1
+@SP
+M=D // SP = ARG+1
+
+@R13
+MA=M-1
+D=M
+@THAT
+M=D
+
+@R13
+MA=M-1
+D=M
+@THIS
+M=D
+
+@R13
+MA=M-1
+D=M
+@ARG
+M=D
+
+@R13
+MA=M-1
+D=M
+@LCL
+M=D
+
+@R14
+A=M
+0;JMP
+#+end_example
