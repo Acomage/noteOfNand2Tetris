@@ -191,14 +191,18 @@ class Assember:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Read a file into a string.")
+    parser = argparse.ArgumentParser(description="Hack Assembler")
     parser.add_argument("filepath", help="Path to the file to read")
-    parser.add_argument("-o", help="Output file path", default="output.hack")
+    parser.add_argument("-o", help="Output file path")
     args = parser.parse_args()
     with open(args.filepath, "r") as f:
         content = f.read()
     assember = Assember(content)
-    with open(args.o, "w") as f:
+    if not args.o:
+        output_path = args.filepath.replace(".asm", ".hack")
+    else:
+        output_path = args.o
+    with open(output_path, "w") as f:
         for line in assember.binary:
             f.write(line + "\n")
 
