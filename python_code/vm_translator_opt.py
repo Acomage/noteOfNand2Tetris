@@ -1121,6 +1121,28 @@ class VMTranslator:
                     extended_instructions.append(ins_now)
                     i += 1
                     continue
+            elif isinstance(
+                ins_now, ArithmeticLogicalInstruction
+            ) and ins_now.operation in ["eq", "gt", "lt"]:
+                if i + 1 < len(self.instructions):
+                    ins_next = self.instructions[i + 1]
+                    if (
+                        isinstance(ins_next, BranchingInstruction)
+                        and ins_next.command == "if-goto"
+                    ):
+                        extended_instructions.append(
+                            IfGotoAfterEqGtLtInstruction(ins_now, ins_next)
+                        )
+                        i += 2
+                        continue
+                    else:
+                        extended_instructions.append(ins_now)
+                        i += 1
+                        continue
+                else:
+                    extended_instructions.append(ins_now)
+                    i += 1
+                    continue
             else:
                 extended_instructions.append(ins_now)
                 i += 1
